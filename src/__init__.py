@@ -1,0 +1,1 @@
+"""Tenant notification example package."""
