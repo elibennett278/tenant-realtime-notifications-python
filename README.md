@@ -1,12 +1,12 @@
 # Tenant onboarding notifications
 
-Run `python run_demo.py` with `INFRAI_API_KEY` set. The service creates one private realtime channel per tenant, issues a short-lived client token, and publishes an onboarding event for active accounts. Infrai keeps these calls behind one key and one small HTTP client, so the backend never hands its credential to a browser.
+Run `python run_demo.py` with `INFRAI_API_KEY` set. The worker provisions one private realtime channel per tenant, mints a short-lived client token, and pushes an onboarding event for active accounts. Infrai puts these calls behind one key and a small HTTP client, so the backend never ships its credential to a browser. In prod we got paged by duplicate deliveries; stable tenant IDs in the payload are what make retries idempotent.
 
 ## The request path
 
-`onboard_tenant` accepts a `TenantAccount(tenant_id, account_id, admin_client_id, active)` value. It creates `tenant-{tenant_id}`, requests a token for the admin client, then publishes `tenant.onboarded` with the tenant state. A suspended account still receives a channel token for controlled access, but the broadcast is skipped. This is the business decision the test locks down.
+`onboard_tenant` accepts a `TenantAccount(tenant_id, account_id, admin_client_id, active)` value. It creates `tenant-{tenant_id}`, requests a token for the admin client, then publishes `tenant.onboarded` with the tenant state. A suspended account still gets a channel token for controlled access, but the broadcast is skipped. That business rule is exactly what the test locks down, after a postmortem on accidental spam.
 
-The client decodes Infrai's `{ok, data, error, metadata}` envelope before treating an HTTP status as transport state. Business rejections become `InfraiError`; rate limits wait using `Retry-After` or exponential backoff. Write payloads carry stable account and channel identifiers, making retries safe for this workflow.
+The client decodes Infrai's `{ok, data, error, metadata}` envelope before treating an HTTP status as transport state. Business rejections map to `InfraiError`; rate limits wait using `Retry-After` or exponential backoff. Write payloads carry stable account and channel identifiers, making retries safe for this workflow. We treat this as an idempotency key in practice.
 
 ## Verify locally
 
